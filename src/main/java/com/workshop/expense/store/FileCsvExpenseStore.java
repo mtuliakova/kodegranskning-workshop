@@ -13,6 +13,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDate;
 import java.time.temporal.WeekFields;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -82,6 +83,38 @@ public class FileCsvExpenseStore implements ExpenseStore {
       int ey = e.date().get(wf.weekBasedYear());
       return ew == w && ey == y;
     }).toList();
+  }
+
+  @Override
+  public List<Expense> findByCategory(Category category) {
+    // Good: Simple and clear implementation
+    return findAll().stream()
+        .filter(e -> e.category() == category)
+        .toList();
+  }
+
+  @Override
+  public void deleteExpense(LocalDate date, String merchant) {
+    // Bad: This implementation has multiple bugs
+    List<Expense> all = findAll();
+    List<Expense> toKeep = new ArrayList<>();
+
+    for (int i = 0; i < all.size(); i++) {
+      Expense e = all.get(i);
+      // Bug: Using == for string comparison instead of .equals()
+      if (e.date().equals(date) && e.merchant() == merchant) {
+        // Bug: Logic is inverted - should skip this one, not add it
+        toKeep.add(e);
+      }
+    }
+
+    // Bug: This will append instead of replacing the file content
+    try {
+      Files.writeString(file, "", StandardCharsets.UTF_8);
+      saveAll(toKeep);
+    } catch (IOException ex) {
+      throw new UncheckedIOException(ex);
+    }
   }
 
   // naive CSV (no escaping quotes/semicolons inside fields; keep notes simple)

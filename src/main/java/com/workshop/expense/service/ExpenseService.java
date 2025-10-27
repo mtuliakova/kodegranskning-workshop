@@ -17,14 +17,39 @@ import java.util.stream.Collectors;
 public class ExpenseService {
 
   private final ExpenseStore store;
+  private BudgetService budgetService; // Bad: Not final, can be changed
 
   public ExpenseService(ExpenseStore store) {
     this.store = store;
   }
 
+  // Good: Setter for dependency injection
+  public void setBudgetService(BudgetService budgetService) {
+    this.budgetService = budgetService;
+  }
+
   // --- core actions ---
   public void register(Expense e) {
     store.save(e);
+
+    // Check budget after registering expense
+    if (budgetService != null) {
+      checkBudgetWarning(e);
+    }
+  }
+
+  // Bad: Using System.out.println for notifications instead of proper logging
+  // Bad: Magic number 0.9
+  private void checkBudgetWarning(Expense e) {
+    if (budgetService.isOverBudget(e.category(), e.date())) {
+      System.out.println("WARNING: You are over budget for " + e.category());
+    } else {
+      BigDecimal remaining = budgetService.getRemainingBudget(e.category(), e.date());
+      // Bug: NullPointerException if no budget exists
+      if (remaining.doubleValue() < budgetService.getAllBudgets().get(0).getLimit().doubleValue() * 0.9) {
+        System.out.println("NOTICE: You are approaching your budget limit for " + e.category());
+      }
+    }
   }
 
   public Map<Category, BigDecimal> weeklyTotals(LocalDate anyDateInWeek) {
@@ -82,6 +107,18 @@ public class ExpenseService {
     return store.findAll().stream()
         .filter(e -> e.merchant().toLowerCase(Locale.ROOT).contains(needle)
             || (!e.note().isBlank() && e.note().toLowerCase(Locale.ROOT).contains(needle)))
+        .toList();
+  }
+
+  /**
+   * Get expenses that exceed a certain threshold
+   * Useful for finding large purchases
+   */
+  public List<Expense> findLargeExpenses(BigDecimal threshold) {
+    // Good: Clear method name and documentation
+    return store.findAll().stream()
+        .filter(e -> e.amount().compareTo(threshold) > 0)
+        .sorted((e1, e2) -> e2.amount().compareTo(e1.amount())) // Descending order
         .toList();
   }
 }
