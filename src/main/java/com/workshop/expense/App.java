@@ -1,7 +1,9 @@
 package com.workshop.expense;
 
+import com.workshop.expense.model.Budget;
 import com.workshop.expense.model.Category;
 import com.workshop.expense.model.Expense;
+import com.workshop.expense.service.BudgetService;
 import com.workshop.expense.service.ExpenseService;
 import com.workshop.expense.store.ExpenseStore;
 import com.workshop.expense.store.FileCsvExpenseStore;
@@ -13,6 +15,15 @@ public class App {
   public static void main(String[] args) {
     ExpenseStore store = new FileCsvExpenseStore(); // CSV storage under ~/Documents/expenses/expenses.csv
     ExpenseService svc = new ExpenseService(store);
+
+    // New feature: Budget tracking
+    BudgetService budgetService = new BudgetService(store);
+    svc.setBudgetService(budgetService);
+
+    // Set up some budgets
+    budgetService.addBudget(new Budget(Category.GROCERIES, new BigDecimal("500.00"), "weekly"));
+    budgetService.addBudget(new Budget(Category.COFFEE, new BigDecimal("100.00"), "weekly"));
+    budgetService.addBudget(new Budget(Category.TRANSPORT, new BigDecimal("200.00"), "weekly"));
 
     // demo: register a few expenses
     svc.register(new Expense(LocalDate.now().with(java.time.DayOfWeek.MONDAY), "Coop",
@@ -35,5 +46,16 @@ public class App {
 
     // optional cute method examples:
     System.out.println("\nAvg per day this week: " + svc.averagePerDayThisWeek(LocalDate.now()));
+
+    // New feature: Budget status
+    System.out.println("\n=== Budget Status ===");
+    var budgetStatus = budgetService.getBudgetStatus(LocalDate.now());
+    budgetStatus.forEach((cat, pct) ->
+        System.out.println(" - " + cat + ": " + String.format("%.1f%%", pct) + " used"));
+
+    // New feature: Find large expenses
+    System.out.println("\n=== Large Expenses (>50 SEK) ===");
+    svc.findLargeExpenses(new BigDecimal("50.00")).forEach(e ->
+        System.out.println(" - " + e.merchant() + ": " + e.amount() + " SEK on " + e.date()));
   }
 }
