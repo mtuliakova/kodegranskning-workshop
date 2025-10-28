@@ -13,6 +13,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDate;
 import java.time.temporal.WeekFields;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -84,7 +85,33 @@ public class FileCsvExpenseStore implements ExpenseStore {
     }).toList();
   }
 
-  // naive CSV (no escaping quotes/semicolons inside fields; keep notes simple)
+  @Override
+  public List<Expense> findByCategory(Category category) {
+    return findAll().stream()
+        .filter(e -> e.category() == category)
+        .toList();
+  }
+
+  @Override
+  public void deleteExpense(LocalDate date, String merchant) {
+    List<Expense> all = findAll();
+    List<Expense> toKeep = new ArrayList<>();
+
+    for (int i = 0; i < all.size(); i++) {
+      Expense e = all.get(i);
+      if (e.date().equals(date) && e.merchant() == merchant) {
+        toKeep.add(e);
+      }
+    }
+
+    try {
+      Files.writeString(file, "", StandardCharsets.UTF_8);
+      saveAll(toKeep);
+    } catch (IOException ex) {
+      throw new UncheckedIOException(ex);
+    }
+  }
+
   private String toCsv(Expense e) {
     return String.join(";",
         e.date().toString(),
